@@ -52,7 +52,7 @@ public class TopPanel extends Composite {
     "<a href='" + Ode.APP_INVENTOR_DOCS_URL + "/about/termsofservice.html'" +
     " target=_blank>" + MESSAGES.privacyTermsLink() + "</a>";
 
-  private final HTML welcome = new HTML("Welcome to the App Inventor 2 alpha release.<BR>" +
+  private final HTML welcome = new HTML("Welcome to the Mad Robots App Inventor 2 alpha release.<BR>" +
       GALLERY_LINK_AND_TEXT + "."
   );
 
@@ -197,7 +197,7 @@ public class TopPanel extends Composite {
     logo.setStyleName("ode-Logo");
     panel.add(logo);
     panel.setCellWidth(logo, "50px");
-    Label title = new Label("MIT App Inventor 2");
+    Label title = new Label("MR App Inventor 2");
     Label version = new Label("alpha");
     VerticalPanel titleContainer = new VerticalPanel();
     titleContainer.add(title);
