@@ -10,6 +10,8 @@ import com.google.appinventor.components.annotations.DesignerProperty;
 import com.google.appinventor.components.annotations.PropertyCategory;
 import com.google.appinventor.components.annotations.SimpleObject;
 import com.google.appinventor.components.annotations.SimpleProperty;
+import com.google.appinventor.components.annotations.SimpleFunction;
+import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.UsesPermissions;
 import com.google.appinventor.components.common.ComponentCategory;
 import com.google.appinventor.components.common.PropertyTypeConstants;
@@ -68,6 +70,32 @@ public class ImageSprite extends Sprite {
   private double cachedRotationHeading;
   private boolean rotationCached;
 
+  private boolean imageAspectRatioEnabled; //Stop the sprite image from being distorted from original image size
+  private double imageScaleRatio;
+  private double imageWidth;
+  private double imageHeight;
+  private boolean imageFillCanvas;
+  private boolean imageAutoSize;
+  
+
+  //GH 03.09.2013 Enhancement 1
+  //Variables to control Sprite animation
+  private String frameImageListStr;   //List of image to be used in the image frame animation as a single string
+  private String[] frameImageList;    //List of image to be used in the image frame animation
+  private int frameQty;               //Total number of image frames in image list
+  private int frameUse;               //Current image frame to be displayed
+  private int frameStart;             //First image frame to be displayed in the FrameAnimation
+  private int frameEnd;               //Last image frame to be displayed in the FrameAnimation
+  private int frameSpeed;             //Interval before the animation image frame is chnaged
+  private int frameSpeedDirection;    //Flag to play animation backwards
+  private int frameSpeedCounter;      //This counts up and when is = to frameSpeed will display then next animation Image frame
+  
+    //Variables to control Sprite image heading
+  private boolean imageHeadingSeperate;    // Seperate the image heading from travel heading
+  private double imageHeading;             // heading of the image
+  private double imageRotateSpeed;         // speed of image heading change in degrees
+  private boolean imagePointTowardsLocked; // Lock image on and follow sprite set in ImagePointTowards
+  private Sprite imageTargetObject;        //Target of sprite to be locked on to
   /**
    * Constructor for ImageSprite.
    *
@@ -79,26 +107,105 @@ public class ImageSprite extends Sprite {
     mat = new Matrix();
     rotates = true;
     rotationCached = false;
+
+    //Variables to control Sprite animation
+    frameImageListStr = "";
+    frameQty = 0;
+    frameUse = 1;
+    frameStart = 1;
+    frameEnd = 1;
+    frameSpeed = 80;
+    frameSpeedCounter = 0;
+    frameSpeedDirection = 0;
+
+    speed = 0;
+
+    imageHeadingSeperate = false;
+    imageHeading = 0;
+    imageRotateSpeed = 0;
+    imagePointTowardsLocked = false;
+    imageTargetObject = null;
+
+    imageScaleRatio = 1;
+    imageAspectRatioEnabled = false;
+    imageFillCanvas = false;
+    imageAutoSize = false;
   }
 
-  public void onDraw(android.graphics.Canvas canvas) {
+  /**
+   * If sprite is set to fill canvas or autosize use the
+   * follow code to rescale the sprite
+   */
+  public void resizeSprite() {
+    if (widthHint == LENGTH_PREFERRED || heightHint == LENGTH_PREFERRED) {
+      //set width/height to size of original image size
+      imageAutoSize = true;
+      imageFillCanvas = false;
+    } else if (widthHint == LENGTH_FILL_PARENT || heightHint == LENGTH_FILL_PARENT){
+      //set width/height to fill canvas
+      imageAutoSize = false;
+      imageFillCanvas = true;
+    }
+    
+    if (imageFillCanvas) {
+      if (imageAspectRatioEnabled) {
+        if (imageWidth > imageHeight && canvas.Height() > canvas.Width()){
+          widthHint = canvas.Width();
+          heightHint =(int) (canvas.Width() * imageScaleRatio);
+        } else {
+          heightHint = canvas.Height();
+          widthHint =  (int) (canvas.Height() / imageScaleRatio);
+        }
+      } else {
+        widthHint = canvas.Width();
+        heightHint = canvas.Height();
+      }
+    } else if (imageAutoSize) {
+      widthHint = (int) imageWidth;
+      heightHint = (int) imageHeight;
+    }
+  }
+  
+  
+  public void onDraw(android.graphics.Canvas mcanvas) {
     if (unrotatedBitmap != null && visible) {
-      int xinit = (int) Math.round(xLeft);
-      int yinit = (int) Math.round(yTop);
-      int w = Width();
-      int h = Height();
+      
+      int xinit;
+      int yinit;
+      resizeSprite();
+      if (imageFillCanvas) {
+        //force sprite to center of canvas
+        xinit = (canvas.Width() / 2 ) - (widthHint / 2);
+        yinit = (canvas.Height() / 2 ) - (heightHint / 2);
+      } else {
+        //offset sprite to orgin point
+       // xinit = (int) xLeft;
+       // yinit = (int) yTop;
+        xinit =  (int) Math.round(xLeft - OriginOffsetX());
+        yinit =  (int) Math.round(yTop - OriginOffsetY());
+      }
+        
+      int w = widthHint;
+      int h = heightHint;
+      
+
+      //set the image heading to seperate from the travel heading is user sets
+      //ImageImageHeadingSeperate = true otherwise use the travel heading for the
+      //Image heading
+      double headingUse = imageHeadingSeperate ?  ImageHeading() : Heading();
+
       // If the sprite doesn't rotate,  use the original drawable
       // otherwise use the bitmapDrawable
       if (!rotates) {
         drawable.setBounds(xinit, yinit, xinit + w, yinit + h);
-        drawable.draw(canvas);
+        drawable.draw(mcanvas);
       } else {
         // compute the new rotated image if the heading has changed
-        if (!rotationCached || (cachedRotationHeading != Heading())) {
+        if (!rotationCached || (cachedRotationHeading != headingUse)) {
           // Set up the matrix for the rotation transformation
           // Rotate around the center of the sprite image (w/2, h/2)
           // TODO(halabelson): Add a way for the user to specify the center of rotation.
-          mat.setRotate((float) -Heading(), w / 2, h / 2);
+          mat.setRotate((float) -headingUse, w / 2, h / 2);
           // We must scale the unrotated Bitmap to be the user specified size before
           // rotating.
           if (w != unrotatedBitmap.getWidth() || h != unrotatedBitmap.getHeight()) {
@@ -119,7 +226,7 @@ public class ImageSprite extends Sprite {
               mat, true);
           // make a drawable for the rotated image and cache the heading
           rotatedDrawable = new BitmapDrawable(rotatedBitmap);
-          cachedRotationHeading = Heading();
+          cachedRotationHeading = headingUse;
         }
         // Position the drawable:
         // We want the center of the image to remain fixed under the rotation.
@@ -137,7 +244,7 @@ public class ImageSprite extends Sprite {
             // to get the other right and bottom edges
             xinit + w / 2 + rotatedBitmap.getWidth() / 2,
             yinit + h / 2 + rotatedBitmap.getHeight() / 2);
-        rotatedDrawable.draw(canvas);
+        rotatedDrawable.draw(mcanvas);
       }
     }
   }
@@ -166,6 +273,7 @@ public class ImageSprite extends Sprite {
       defaultValue = "")
   @SimpleProperty
   public void Picture(String path) {
+    PictureBeforeChanges();    //Call event to allow user to assign their own blocks before the picture changes
     picturePath = (path == null) ? "" : path;
     try {
       drawable = MediaUtil.getBitmapDrawable(form, picturePath);
@@ -177,10 +285,16 @@ public class ImageSprite extends Sprite {
     if (drawable != null) {
       // we'll need the bitmap for the drawable in order to rotate it
       unrotatedBitmap = drawable.getBitmap();
+      imageWidth = drawable.getBitmap().getWidth();
+      imageHeight = drawable.getBitmap().getHeight();
+      imageScaleRatio = imageHeight / imageWidth;
+      //imageScaleRatio = imageWidth > imageHeight ? imageHeight / imageWidth : imageWidth / imageHeight;
     } else {
       unrotatedBitmap = null;
     }
     registerChange();
+    frameSpeedCounter = 0;  //when animation frame changed reset count next frame
+    PictureAfterChanges();  //Call event to allow user to assign their own blocks after the picture changes
   }
 
   // The actual width/height of an ImageSprite whose Width/Height property is set to Automatic or
@@ -189,36 +303,76 @@ public class ImageSprite extends Sprite {
   @Override
   @SimpleProperty
   public int Height() {
-    if (heightHint == LENGTH_PREFERRED || heightHint == LENGTH_FILL_PARENT) {
-      // Drawable.getIntrinsicWidth/Height gives weird values, but Bitmap.getWidth/Height works.
-      return drawable == null ? 0 : drawable.getBitmap().getHeight();
-    }
     return heightHint;
   }
 
   @Override
   @SimpleProperty
   public void Height(int height) {
+    imageFillCanvas = false;
+    imageAutoSize = false;
     heightHint = height;
+    if (imageAspectRatioEnabled) {
+      //Scale width to ratio to original height
+      widthHint = (int) (heightHint / imageScaleRatio);
+    }
     registerChange();
   }
 
   @Override
   @SimpleProperty
   public int Width() {
-    if (widthHint == LENGTH_PREFERRED || widthHint == LENGTH_FILL_PARENT) {
-      // Drawable.getIntrinsicWidth/Height gives weird values, but Bitmap.getWidth/Height works.
-      return drawable == null ? 0 : drawable.getBitmap().getWidth();
-    }
     return widthHint;
   }
 
   @Override
   @SimpleProperty
   public void Width(int width) {
+    imageFillCanvas = false;
+    imageAutoSize = false;
     widthHint = width;
+    if (imageAspectRatioEnabled) {
+      //Scale height to ratio to original width
+      heightHint = (int) (widthHint * imageScaleRatio);
+    }
     registerChange();
   }
+
+  @SimpleFunction
+  public void FillCanvas() {
+    imageFillCanvas = true;
+    imageAutoSize = false;
+    registerChange();
+  }
+
+  @SimpleFunction
+  public void AutoSize() {
+    imageFillCanvas = false;
+    imageAutoSize = true;
+    registerChange();
+  }
+
+
+  /**
+   * ImageAspectRatioEnabled -
+   * True  - sprite will not distort the image when width or height is changed the image will be scales up/down automatically
+   * False - Sprite width and height will be treat seperately
+   */
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "False")
+  @SimpleProperty
+  public void KeepAspectRatio(boolean tempVal) {
+    imageAspectRatioEnabled = tempVal;
+    registerChange();
+  }
+
+  @SimpleProperty(
+      description = "keep the image aspect ratio inline with the ordginal image size to stop image distortion.",
+      category = PropertyCategory.APPEARANCE)
+  public boolean KeepAspectRatioEnabled() {
+    return imageAspectRatioEnabled;
+  }
+
 
   /**
    * Rotates property getter method.
@@ -247,5 +401,356 @@ public class ImageSprite extends Sprite {
     public void Rotates(boolean rotates) {
     this.rotates = rotates;
     registerChange();
+  }
+  //-------------------------------------------------------------------------------------------------
+  //Code to enable imageheading separate from heading
+  //Enhancement 3.3 - Image heading settings
+
+  //ImageHeadingSeperate          - added 30/09/2013
+  //ImageHeading                  - added 30/09/2013
+  //ImageHeadingRotateSpeed       - added 30/09/2013
+  //ImagePointTowards
+  //ImagePointTowardsLockEnabled
+
+
+  //Image rotation and display angle
+
+  /**
+   * ImageHeadingSeperate -
+   * True  - image of sprite using ImageHeading to set image orientation
+   * False - image of sprite using Heading to set image orientation
+   */
+  //@DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+ //     defaultValue = "False")
+ // @SimpleProperty
+ // public void ImageHeadingSeperate(boolean tempVal) {
+ //   imageHeadingSeperate = tempVal;
+ //   registerChange();
+ // }
+
+  @SimpleFunction
+  public void ImageHeadingUsesHeading() {
+     imageHeadingSeperate = false;
+     registerChange();
+  }
+
+  
+  //@SimpleProperty(
+  //    description = "If true, the sprite image rotates to match the sprite's heading. " +
+  //    "If false, the sprite image does not rotate when the sprite changes heading. " +
+  //    "The sprite rotates around its centerpoint.",
+  //    category = PropertyCategory.BEHAVIOR)
+  //public boolean ImageHeadingSeperate() {
+  //  return imageHeadingSeperate;
+  //}
+
+
+  /**
+   * ImageHeading -
+   * Set the image heading
+   **/
+   @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
+       defaultValue = "0")
+   @SimpleProperty
+   public void ImageHeading(double tempVal) {
+     imageHeadingSeperate = true;
+     imageRotateSpeed = 0;
+     imageTargetObject = null;
+     setImageHeading(tempVal);
+   }
+
+   public void setImageHeading(double tempVal) {
+     imageHeadingSeperate = true;
+     imageHeading = tempVal;
+     //if heading is not between 0 - 359 recalculate so it's within these limits
+     imageHeading = (float) (imageHeading - (Math.floor(imageHeading / 360) * 360));
+     imageHeading = imageHeading < 0 ? 360 + imageHeading : imageHeading;
+     registerChange();
+   }
+
+   @SimpleProperty(description = "Current angle of imagesprite",
+       category = PropertyCategory.APPEARANCE)
+   public double ImageHeading() {
+     return imageHeading;
+   }
+
+
+  /**
+   * ImageRotateSpeed -
+   * negative value  - rotates image anticlockwise set degree every 1ms
+   * 0 - not image rotation
+   * positive value  - rotates image clockwise set degree every 1ms
+   **/
+   @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
+       defaultValue = "0")
+   @SimpleProperty
+   public void ImageRotateSpeed(double tempVal) {
+     imageRotateSpeed = tempVal;
+   }
+
+   @SimpleProperty(description = "The number of sprites in the spritesheet width",
+       category = PropertyCategory.APPEARANCE)
+   public double ImageRotateDelay() {
+     return imageRotateSpeed;
+   }
+
+
+
+   /**
+    * Turns this sprite to point towards a given other sprite.
+    *
+    * @param target the other sprite to point towards
+    */
+   @SimpleFunction(
+     description = "<p>Turns the sprite to point towards a designated " +
+     "target sprite. The new heading will be parallel to the line joining " +
+     "the centerpoints of the two sprites.</p>")
+   public void ImagePointTowards(Sprite target) {
+     imageHeadingSeperate = true;
+     ImageHeading(-Math.toDegrees(Math.atan2(
+        // we adjust for the fact that the sprites' X() and Y()
+        // are not the center points.
+        target.Y() - Y() + (target.Height() - Height()) / 2,
+        target.X() - X() + (target.Width() - Width()) / 2)));
+     imageTargetObject = target;
+   }
+
+   /**
+    * Turns this sprite to point towards a given point.
+    *
+    * @param x parameter of the point to turn to
+    * @param y parameter of the point to turn to
+    */
+   @SimpleFunction(
+     description = "<p>Turns the sprite to point towards the point " +
+     "with coordinates as (x, y).</p>")
+   public void ImagePointInDirection(double x, double y) {
+     imageHeadingSeperate = true;
+     ImageHeading(-Math.toDegrees(Math.atan2(
+         // we adjust for the fact that the sprite's X() and Y()
+         // is not the center point.
+         y - Y() - Height() / 2,
+         x - X() - Width() / 2)));
+   }
+
+
+   /**
+    * TargetObjectLockEnabled -
+    * This property working in conjuction with PointTowards when set to true will
+    * cause the sprite to always head in the direction of the target object.
+    */
+   @SimpleProperty(
+       category = PropertyCategory.BEHAVIOR)
+   @DesignerProperty(
+       editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+       defaultValue = "False")
+   public void ImagePointTowardsLocked(boolean tempval) {
+     imagePointTowardsLocked = tempval;
+   }
+
+   @SimpleProperty(
+     description = "<p>Sprite will lock and track target object.</p>")
+   public boolean ImagePointTowardsLocked() {
+     return imagePointTowardsLocked;
+   }
+
+
+  //-------------------------------------------------------------------------------------------------
+  //Code to enable Sprite animation
+
+  /**
+  *Event so user can define there own blocks before the picture changes
+  */
+  @SimpleEvent
+  public void PictureBeforeChanges(){
+    EventDispatcher.dispatchEvent(this, "PictureBeforeChanges");
+  }
+
+  /**
+  *Event so user can define there own blocks after the picture changes
+  */
+  @SimpleEvent
+  public void PictureAfterChanges(){
+    EventDispatcher.dispatchEvent(this, "PictureAfterChanges");
+  }
+
+  /**
+  *Set FrameImageList
+  *Used to store all images that will be use as frame for the frame animation
+  **/
+  @DesignerProperty(
+    editorType = PropertyTypeConstants.PROPERTY_TYPE_STRING,
+    defaultValue = "")
+  @SimpleProperty(description = "List of images.",
+    category = PropertyCategory.APPEARANCE)
+  public void FrameImageList(String images){
+    frameImageListStr = images.replace("(","").replace(")","");
+    frameImageList = frameImageListStr.split(" "); //frameImageList = split imageList by | and put into arra
+    frameQty = frameImageList.length;      //set the total number for images in the imagelist
+    frameStart = 1;
+    frameEnd = frameQty;
+    FrameToUse(frameUse); //select the current image frame to be displayed
+  }
+
+  @SimpleProperty(description = "Total number image frame in FrameImageList.",
+    category = PropertyCategory.APPEARANCE)
+  public int FrameQty(){
+    return frameQty;
+  }
+
+  @SimpleProperty(description = "The list of frameimages being used",
+    category = PropertyCategory.APPEARANCE)
+  public String FrameImageList(){
+    return "(" + frameImageListStr + ")";  // Return the FrameImageList as a string so the user can interigate it from a list
+  }
+
+  /**
+  *Set the image to be used for the image list
+  *As default the value is 1 allow the imagesprite to be used as previous
+  **/
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_NON_NEGATIVE_INTEGER,
+     defaultValue = "1")
+  @SimpleProperty
+  //public void FrameUse(int frame){
+  public void FrameToUse(int frame){
+    //If the frameIndex is outside the limit of the frameImageList then set frameIndex to a value within the limits
+    if (frameQty > 0){
+      if (frame > frameQty) {
+        frameUse = 1;
+      } else if (frame < 1) {
+        frameUse = frameQty;
+      } else {
+        frameUse = frame;
+      }
+       Picture(frameImageList[frameUse - 1]); //select the current image frame to be displayed
+    }
+  }
+
+  //-------------------------------------------------------------------------------------------------------------------------
+  //delete this code
+  //@SimpleProperty
+  //public void FrameUse(int frame){}
+  //@SimpleProperty(description = "The current image frame index being used",
+  //     category = PropertyCategory.APPEARANCE)
+  // public int FrameUse(){return 1;}
+  //-------------------------------------------------------------------------------------------------------------------------
+
+  @SimpleProperty(description = "The current image frame index being used",
+    category = PropertyCategory.APPEARANCE)
+  //public int FrameUse(){
+  public int FrameToUse(){
+    return frameUse;
+  }
+
+  /**
+  *Set FramesPerSecond
+  *Used to control the speed of the FrameAnimation
+  **/
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_INTEGER,
+    defaultValue = "0")
+  @SimpleProperty
+  public void AnimationSpeed(int frameRate){
+    if (frameRate < -100){
+      frameSpeedDirection = -100;
+    }else if(frameRate > 100){
+      frameSpeedDirection = 100;
+    }else{
+      frameSpeedDirection = frameRate;
+    }
+    frameSpeed = frameSpeedDirection < 0 ? 0 - frameSpeedDirection : frameSpeedDirection;
+  }
+
+  @SimpleProperty(description = "Number of image frames displayed per second",
+    category = PropertyCategory.APPEARANCE)
+  public int AnimationSpeed(){
+    return frameSpeedDirection;
+  }
+
+ // /**
+ // *Set StartFrame
+ // *
+ // **/
+ // @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_NON_NEGATIVE_INTEGER,
+ //    defaultValue = "1")
+ // @SimpleProperty
+ // public void AnimationStartFrame(int frame){
+ //   frameStart = frame < 1 ? 1 : frame;
+ // }
+
+ // @SimpleProperty(description = "Fisrt frame index in the animation",
+ //   category = PropertyCategory.APPEARANCE)
+ // public int  AnimationStartFrame(){
+ //   return frameStart;
+ // }
+
+//  /**
+//  *Set EndFrame
+//  *
+//  **/
+//  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_NON_NEGATIVE_INTEGER,
+//    defaultValue = "1")
+//  @SimpleProperty
+// public void AnimationEndFrame(int frame){
+//    frameEnd = frame > frameQty ? frameQty : frame;
+//  }
+
+//  @SimpleProperty(description = "Last frame index in the animation",
+//    category = PropertyCategory.APPEARANCE)
+//  public int AnimationEndFrame(){
+//    return frameEnd;
+//  }
+
+
+  //-------------------------------------------------------------------------------------------------------------------------
+  //delete this code
+ // @SimpleFunction
+ // public void AnimationUseNextFrame(){}
+  //-------------------------------------------------------------------------------------------------------------------------
+
+ // /**
+ // *AnimationUseNextFrame
+ // *Used to show the next frame in animation sequence
+ // */
+ // @SimpleFunction
+ // //public void AnimationUseNextFrame(){
+ // public void NextFrame(){
+ //       frameUse++;
+ //   if (frameUse > frameEnd){
+ //     frameUse = frameStart;
+ //   }
+ //   FrameToUse(frameUse);
+ // }
+
+  /**
+  * Moves and redraws sprite, registering changes.
+  */
+  @Override
+  public void alarm(){
+    if (frameSpeed > 0){
+      frameSpeedCounter++;
+      if (frameSpeedCounter > (100 - frameSpeed)){
+      //  NextFrame();
+        if (frameSpeedDirection > 0) {
+          FrameToUse(frameUse + 1);
+        } else {
+          FrameToUse(frameUse - 1);
+        }
+        
+      }
+    }
+
+    //Below for imagsprite rotate at time interval
+    if (imageHeadingSeperate) {
+      if (imageRotateSpeed != 0) {
+        setImageHeading(imageHeading + imageRotateSpeed);
+      }
+      if (imagePointTowardsLocked && imageTargetObject!=null) {
+        ImagePointTowards(imageTargetObject);
+      }
+    }
+
+    //Make sprite point in detection of target sprite
+    //Below for imagsprite movement at time interval
+    sharedAlarm();
   }
 }

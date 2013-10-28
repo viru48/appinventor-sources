@@ -106,6 +106,9 @@ public final class Canvas extends AndroidViewComponent implements ComponentConta
   private String backgroundImagePath = "";
   private int textAlignment;
 
+  private boolean gravityEnabled = false;   //used to control gravity of sprite on the canvas
+  private boolean gravityInverted = false;  //used to invert the weight of sprite
+
   // Default values
   private static final int MIN_WIDTH_HEIGHT = 1;
   private static final float DEFAULT_LINE_WIDTH = 2;
@@ -819,14 +822,14 @@ public final class Canvas extends AndroidViewComponent implements ComponentConta
   *
   * @param width
   */
-  @Override
-  @SimpleProperty
-  // the bitmap routines will crash if the width is set to 0
-  public void Width(int width) {
-    if (width >= MIN_WIDTH_HEIGHT) {
-        super.Width(width);
-    }
-  }
+//  @Override
+//  @SimpleProperty
+//  // the bitmap routines will crash if the width is set to 0
+//  public void Width(int width) {
+//    if (width >= MIN_WIDTH_HEIGHT) {
+//        super.Width(width);
+//    }
+//  }
 
   /**
    * Set the canvas height
@@ -834,15 +837,52 @@ public final class Canvas extends AndroidViewComponent implements ComponentConta
    *
    * @param height
    */
-  @Override
-  @SimpleProperty
-  // the bitmap routines will crash if the height is set to 0
-   public void Height(int height) {
-     if (height >= MIN_WIDTH_HEIGHT) {
-       super.Height(height);
-     }
-   }
+//  @Override
+//  @SimpleProperty
+//  // the bitmap routines will crash if the height is set to 0
+//   public void Height(int height) {
+//     if (height >= MIN_WIDTH_HEIGHT) {
+//       super.Height(height);
+//     }
+//   }
 
+  /**
+   * GravityEnabled -
+   * Switch on off gravity on Canvas which has effect on all sprite
+   * contained within it
+   */
+  @SimpleProperty(
+      description = "Gravity on/off.",
+      category = PropertyCategory.APPEARANCE)
+  public boolean GravityEnabled() {
+    return gravityEnabled;
+  }
+
+
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "False")
+  @SimpleProperty
+  public void GravityEnabled(boolean tempval) {
+    gravityEnabled = tempval;
+  }
+
+  /**
+   * GravityInverted -
+   * Invert the sprite weights
+   */
+  @SimpleProperty(
+      description = "Gravity Invert so sprite -weight = +weight and +weight = -weight",
+      category = PropertyCategory.APPEARANCE)
+  public boolean GravityInverted() {
+    return gravityInverted;
+  }
+
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "False")
+  @SimpleProperty
+  public void GravityInverted(boolean tempval) {
+    gravityInverted = tempval;
+  }
 
   /**
    * Returns the button's background color as an alpha-red-green-blue

@@ -17,6 +17,7 @@ import com.google.appinventor.components.runtime.errors.IllegalArgumentError;
 import com.google.appinventor.components.runtime.util.BoundingBox;
 import com.google.appinventor.components.runtime.util.TimerInternal;
 
+
 import android.os.Handler;
 import android.util.Log;
 
@@ -37,12 +38,6 @@ import java.util.Set;
 public abstract class Sprite extends VisibleComponent
     implements AlarmHandler, OnDestroyListener, Deleteable {
   private static final String LOG_TAG = "Sprite";
-  private static final boolean DEFAULT_ENABLED = true;  // Enable timer for movement
-  private static final int DEFAULT_HEADING = 0;      // degrees
-  private static final int DEFAULT_INTERVAL = 100;  // ms
-  private static final float DEFAULT_SPEED = 0.0f;   // pixels per interval
-  private static final boolean DEFAULT_VISIBLE = true;
-  private static final double DEFAULT_Z = 1.0;
 
   protected final Canvas canvas;              // enclosing Canvas
   private final TimerInternal timerInternal;  // timer to control movement
@@ -69,6 +64,36 @@ public abstract class Sprite extends VisibleComponent
   protected double yTop;       // uppermost y-coordinate
   protected double zLayer;     // z-coordinate, higher values go in front
   protected float speed;       // magnitude in pixels
+
+  // Variables for custom origin postion
+  protected boolean originCenter;                 //True force origin of coordinates to be center
+  protected double originOffsetX;                 //origin x position coordinates calculated from top left
+  protected double originOffsetY;                 //origin y position coordinates calculated from top left
+
+  //Variable to make motion work
+  protected Sprite targetObject;                  //Target of sprite to be locked on to
+  protected double targetX;                       //X position of target sprite
+  protected double targetY;                       //Y position of target sprite
+  protected float targetDistance;                 //distance too target object so can be travelled round in a circle
+  protected double degrees;    //used to orbit target; This will be replaced and calculated on the fly
+  protected boolean orbitClockwise;               //sets the direction as orbiting target
+  protected float speedChangeIncrements;          //for smooth speed change to set the increments of speed change
+  protected float speedChangeTo;                  //for smooth speed change
+
+  //Variable to make gravity work
+  protected boolean useCanvasGravity;             //Will cause the sprite to ignore gravityEnabled setting
+  protected int weight;                           //The downward pull force caused by gravity (in pixels)
+  protected boolean bounceEnabled;                //When sprite hits surface how much reverse distance will have (in percent)
+
+  //enhancement 5 - canvas boundary
+  protected boolean boundaryTopEnabled;           //Enable/Disable canvas top boundary
+  protected boolean boundaryBottomEnabled;         //Enable/Disable canvas bottom boundary
+  protected boolean boundaryLeftEnabled;          //Enable/Disable canvas left boundary
+  protected boolean boundaryRightEnabled;         //Enable/Disable canvas right boundary
+  protected boolean canvasWrapAroundEnabled;      //Enable/Disable sprite travelling from one side of canvas to the oppisite side
+
+  //temp variables
+  private float speedChange;
 
   /**
    * The angle, in degrees above the positive x-axis, specified by the user.
@@ -110,15 +135,43 @@ public abstract class Sprite extends VisibleComponent
     registeredCollisions = new HashSet<Sprite>();
 
     // Set in motion.
-    timerInternal = new TimerInternal(this, DEFAULT_ENABLED, DEFAULT_INTERVAL, handler);
+    timerInternal = new TimerInternal(this, true, 1, handler);
+    timerInternal.Interval(1);     //Gareth Haylings 15.07.2013 not sure if this is needed
 
     // Set default property values.
     Heading(0);  // Default initial heading
-    Enabled(DEFAULT_ENABLED);
-    Interval(DEFAULT_INTERVAL);
-    Speed(DEFAULT_SPEED);
-    Visible(DEFAULT_VISIBLE);
-    Z(DEFAULT_Z);
+    Enabled(true);
+    Speed(0);
+    Visible(true);
+    Z(1);
+
+    //enhancement 3.1 - sprite motion using magnetism
+    targetObject = null;
+    targetX = 0;
+    targetY = 0;
+    targetDistance = 0;
+    degrees = 0;
+    orbitClockwise = true;
+    speedChangeIncrements = 0;
+    speedChangeTo = 0;
+
+    //enhancement 3.2 - sprite motion using Gravity
+    weight = 0;
+    bounceEnabled = false;
+    useCanvasGravity = true;
+
+    //enhancement 4 - custom origin
+    originCenter = false;
+    originOffsetX = 0;
+    originOffsetY = 0;
+
+    //enhancement 5 - canvas boundary
+    boundaryTopEnabled = true;
+    boundaryBottomEnabled = true;
+    boundaryLeftEnabled = true;
+    boundaryRightEnabled = true;
+    canvasWrapAroundEnabled = true;
+
 
     container.$form().registerForOnDestroy(this);
   }
@@ -163,7 +216,7 @@ public abstract class Sprite extends VisibleComponent
    */
   @DesignerProperty(
       editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
-      defaultValue = DEFAULT_ENABLED ? "True" : "False")
+      defaultValue = "True")
   @SimpleProperty
       public void Enabled(boolean enabled) {
     timerInternal.Enabled(enabled);
@@ -177,12 +230,22 @@ public abstract class Sprite extends VisibleComponent
    * @param userHeading degrees above the positive x-axis
    */
   @SimpleProperty(
+      description = "Set the sprite heading in degrees.",
       category = PropertyCategory.BEHAVIOR)
   @DesignerProperty(
       editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
-      defaultValue = DEFAULT_HEADING + "")
-  public void Heading(double userHeading) {
-    this.userHeading = userHeading;
+      defaultValue = "0")
+  public void Heading(double tempval) {
+    targetDistance = 0;
+    targetObject = null;
+    SetHeading(tempval);
+  }
+
+  public void SetHeading(double tempval) {
+    userHeading = tempval;
+    //if heading is not between 0 - 359 recalculate so it's within these limits
+    userHeading = userHeading - (Math.floor(userHeading / 360) * 360);
+    userHeading = userHeading < 0 ? 360 + userHeading : userHeading;
     // Flip, because y increases in the downward direction on Android canvases
     heading = -userHeading;
     headingRadians = Math.toRadians(heading);
@@ -198,38 +261,9 @@ public abstract class Sprite extends VisibleComponent
    * @return degrees above the positive x-axis
    */
   @SimpleProperty(
-    description = "<p>Returns the sprite's heading in degrees above the positive " +
-    "x-axis.  Zero degrees is toward the right of the screen; 90 degrees is toward the " +
-    "top of the screen.</p>")
+    description = "Returns the sprite heading in degrees.")
   public double Heading() {
     return userHeading;
-  }
-
-  /**
-   * Interval property getter method.
-   *
-   * @return  timer interval in ms
-   */
-  @SimpleProperty(
-      description = "<p>The interval in milliseconds at which the sprite's " +
-      "position is updated.  For example, if the interval is 50 and the speed is 10, " +
-      "then the sprite will move 10 pixels every 50 milliseconds.</p>",
-      category = PropertyCategory.BEHAVIOR)
-  public int Interval() {
-    return timerInternal.Interval();
-  }
-
-  /**
-   * Interval property setter method: sets the interval between timer events.
-   *
-   * @param interval  timer interval in ms
-   */
-  @DesignerProperty(
-      editorType = PropertyTypeConstants.PROPERTY_TYPE_NON_NEGATIVE_INTEGER,
-      defaultValue = DEFAULT_INTERVAL + "")
-  @SimpleProperty
-  public void Interval(int interval) {
-    timerInternal.Interval(interval);
   }
 
   /**
@@ -239,12 +273,14 @@ public abstract class Sprite extends VisibleComponent
    * milliseconds
    */
   @SimpleProperty(
+      description = "Set the travelling speed of the sprite (pixels/ms)",
       category = PropertyCategory.BEHAVIOR)
   @DesignerProperty(
       editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
-      defaultValue = DEFAULT_SPEED + "")
-  public void Speed(float speed) {
-    this.speed = speed;
+      defaultValue = "0")
+  public void Speed(float tempval) {
+    speedChangeIncrements = 0; //stop speed from incremental changing
+    speed = tempval;
   }
 
   /**
@@ -254,12 +290,213 @@ public abstract class Sprite extends VisibleComponent
    *         milliseconds.
    */
   @SimpleProperty(
-    description = "<p>The speed at which the sprite moves.  The sprite moves " +
-    "this many pixels every interval.</p>")
+      description = "Get current travelling speed sprite (pixels/ms)")
   public float Speed() {
     return speed;
   }
+  //--------------------------------------------------------------------------------------------------------------------------------------------------------
+  //Enhancement 4 - Sprite origin
+  /**
+   * OriginCenter -
+   * True - force coordinates to be taken from center of sprite
+   */
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "False")
+  @SimpleProperty(
+      description = "Set the origin position of the sprite to center")
+  public void OriginCenter(boolean tempVal) {
+    originCenter = tempVal;
+    if (originCenter) {
+      originOffsetX = Width() / 2;
+      originOffsetY = Height() / 2;
+      registerChange();
+    }
+  }
 
+  @SimpleProperty(description = "True - origin center",
+      category = PropertyCategory.BEHAVIOR)
+  public boolean OriginCenter() {
+    return originCenter;
+  }
+
+  /**
+   * OriginOffsetX -
+   */
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
+      defaultValue = "0")
+  @SimpleProperty(
+      description = "Set the origin position X",
+      category = PropertyCategory.APPEARANCE)
+  public void OriginOffsetX(double tempVal) {
+    originOffsetX = tempVal;
+    if (originOffsetX == Width() / 2 && originOffsetY == Height() / 2) {
+      originCenter = true;
+    } else {
+      originCenter = false;
+    }
+    registerChange();
+  }
+
+  @SimpleProperty(
+      description = "Get the origin position X")
+  public double OriginOffsetX() {
+    return originOffsetX;
+  }
+
+
+  /**
+   * OriginOffsetY -
+   */
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
+      defaultValue = "0")
+  @SimpleProperty(
+      description = "Set the origin position Y",
+      category = PropertyCategory.APPEARANCE)
+  public void OriginOffsetY(double tempVal) {
+    originOffsetY = tempVal;
+    if (originOffsetX == Width() / 2 && originOffsetY == Height() / 2) {
+      originCenter = true;
+    } else {
+      originCenter = false;
+    }
+    registerChange();
+  }
+
+  @SimpleProperty(
+      description = "Get the origin position Y")
+  public double OriginOffsetY() {
+    return originOffsetY;
+  }
+  //--------------------------------------------------------------------------------------------------------------------------------------------------------
+  //Enhancement 3.2 - Sprite Motion using Gravity
+
+  /**
+   * Weight -
+   * (pixels) The downward pull force caused by gravity
+   */
+  @SimpleProperty(
+      category = PropertyCategory.BEHAVIOR)
+  @DesignerProperty(
+      editorType = PropertyTypeConstants.PROPERTY_TYPE_INTEGER,
+      defaultValue = "0")
+  public void Weight(int tempval) {
+    weight = tempval;
+  }
+
+  @SimpleProperty(
+    description = "Set the downward pull force")
+  public int Weight() {
+    return weight;
+  }
+
+
+  /**
+   * BouncEnabled -
+   * reverse distance the sprite will travel in the opposite direction when it hits a surface
+   */
+  @SimpleProperty(
+      category = PropertyCategory.BEHAVIOR)
+  @DesignerProperty(
+      editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "False")
+  public void BounceEnabled(boolean tempval) {
+    bounceEnabled = tempval;
+  }
+
+  @SimpleProperty(
+    description = "<p>True - when sprite hits surface will bounce</p>")
+  public boolean BounceEnabled() {
+    return bounceEnabled;
+  }
+
+
+  /**
+   * UseCanvasGravity -
+   * Disables/Enable use the global setting to switch on the gravity from the Canvas
+   */
+  @SimpleProperty(
+      category = PropertyCategory.BEHAVIOR)
+  @DesignerProperty(
+      editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "True")
+  public void UseCanvasGravity(boolean tempval) {
+    useCanvasGravity = tempval;
+  }
+
+  @SimpleProperty(
+    description = "<p>False - ignore gravity of canvas.</p>")
+  public boolean UseCanvasGravity() {
+    return useCanvasGravity;
+  }
+  //--------------------------------------------------------------------------------------------------------------------------------------------------------
+  //Enhancement 3.1 - ImageSprite/Ball Motion Speed & Heading
+  //SpeedChangeSmoothlyTo (Speed, time)      //Added 01.10.2013
+  //OrbitObjectClockwise (Target, Radius)
+  //OrbitObjectAntiClockwise (Target, Radius)
+  //TargetObjectLockEnabled                  //Added 01.10.2013
+  //OrbitPointClockwise(X, Y, Radius)
+  //OrbitPointAntiClockwise(X, Y, Radius)
+  //DistanceTo (Target)                      //Added 01.10.2013
+
+
+  /**
+   * HeadingRotateSpeed -
+   * Will cause the Imagesprite motion heading to offset be a set degree at regular
+   * intervals. The effect make the imagesprite to move in a circle
+   * negative value = rotate anti-clockwise
+   * positive value = rotate clockwise
+   * 0 = stop rotation
+   */
+  @SimpleFunction()
+  public void SpeedChangeSmoothlyTo(float tempSpeed, int tempTimer) {
+    speedChangeIncrements = (tempSpeed - speed) / tempTimer;
+    speedChangeTo = tempSpeed;
+  }
+
+
+  /**
+   * StopFollowingObject -
+   * Will cause the sprite stop the following the target object
+   */
+  @SimpleFunction()
+  public void StopFollowingObject() {
+    targetObject = null;
+  }
+    
+  /**
+   * OrbitObject(Target, Radius, direction, follow) -
+   * Will cause the sprite to orbit a target object at a set distance 
+   * direction 0 = Clockwise else anticlockwise
+   */
+  @SimpleFunction()
+  public void OrbitObject(Sprite target, float radius, int direction, boolean follow) {
+    degrees = target.AngleToPoint(xLeft + (Width()/2), yTop + (Height()/2));
+    targetObject = follow ? target : null;
+    targetX = target.X() + (target.Width()/2);
+    targetY = target.Y() + (target.Height()/2);
+    targetDistance = radius;
+    orbitClockwise = direction == 0 ? true : false;
+  }
+  
+  /**
+   * OrbitPointClockwise(X,Y,Radius) -
+   * Will cause the sprite to orbit a x y position at a set distance
+   * * direction 0 = Clockwise else anticlockwise
+   */
+  @SimpleFunction(description = "Orbit around point at a set distance<br> " +
+      "direction 0 - travel clockwise<br>" +
+      "direction 1 - travel anti-clockwise")
+  public void OrbitPoint(float x, float y, float radius, int direction) {
+    degrees = AngleToPoint(x,y) + 180;
+    targetX = x;
+    targetY = y;
+    targetDistance = radius;
+    orbitClockwise = direction == 0 ? true : false;
+  }
+
+
+
+  //--------------------------------------------------------------------------------------------------------------------------------------------------------
   /**
    * Gets whether sprite is visible.
    *
@@ -280,7 +517,7 @@ public abstract class Sprite extends VisibleComponent
    */
   @DesignerProperty(
       editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
-      defaultValue = DEFAULT_VISIBLE ? "True" : "False")
+      defaultValue = "True")
   @SimpleProperty
   public void Visible(boolean visible) {
     this.visible = visible;
@@ -330,7 +567,7 @@ public abstract class Sprite extends VisibleComponent
   @SimpleProperty(
       category = PropertyCategory.APPEARANCE)
   @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_FLOAT,
-                    defaultValue = DEFAULT_Z + "")
+                    defaultValue = "1")
   public void Z(double layer) {
     this.zLayer = layer;
     canvas.changeSpriteLayer(this);  // Tell canvas about change
@@ -412,21 +649,30 @@ public abstract class Sprite extends VisibleComponent
     postEvent(this, "Dragged", startX, startY, prevX, prevY, currentX, currentY);
   }
 
-  /**
-   * Event handler called when the sprite reaches an edge of the screen.
-   * If Bounce is then called with that edge, the sprite will appear to
-   * bounce off of the edge it reached.
+  ///**
+  // * Event handler called when the sprite reaches an edge of the screen.
+  // * If Bounce is then called with that edge, the sprite will appear to
+  // * bounce off of the edge it reached.
+  // */
+  //@SimpleEvent
+  //public void EdgeReached(int edge) {
+  //  if (edge == Component.DIRECTION_NONE
+  //      || edge < Component.DIRECTION_MIN
+  //      || edge > Component.DIRECTION_MAX) {
+  //    throw new IllegalArgumentException("Illegal argument " + edge +
+  //        " to Sprite.EdgeReached()");
+  //  }
+  //  postEvent(this, "EdgeReached", edge);
+  // }
+  
+  /** EdgeReached(top,bottom,left,right)
+   * Will return true or false to the edges reached
    */
   @SimpleEvent
-  public void EdgeReached(int edge) {
-    if (edge == Component.DIRECTION_NONE
-        || edge < Component.DIRECTION_MIN
-        || edge > Component.DIRECTION_MAX) {
-      throw new IllegalArgumentException("Illegal argument " + edge +
-          " to Sprite.EdgeReached()");
-    }
-    postEvent(this, "EdgeReached", edge);
+  public void EdgeReached(boolean topEdge, boolean bottomEdge, boolean leftEdge, boolean rightEdge) {
+    postEvent(this, "EdgeReached", topEdge, bottomEdge, leftEdge, rightEdge);
   }
+    
 
   /**
    * Handler for NoLongerCollidingWith events, called when a pair of sprites
@@ -510,58 +756,7 @@ public abstract class Sprite extends VisibleComponent
   // Methods providing Simple functions:
   // Bounce, CollidingWith, MoveIntoBounds, MoveTo, PointTowards.
 
-  /**
-   * Makes this sprite bounce, as if off of a wall by changing the
-   * {@link #heading} (unless the sprite is not traveling toward the specified
-   * direction).  This also calls {@link #MoveIntoBounds()} in case the
-   * sprite is out of bounds.
-   *
-   * @param edge the direction of the object (real or imaginary) to bounce off
-   *             of; this should be one of
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_NORTH},
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_NORTHEAST},
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_EAST},
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_SOUTHEAST},
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_SOUTH},
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_SOUTHWEST},
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_WEST}, or
-   *    {@link com.google.appinventor.components.runtime.Component#DIRECTION_NORTHWEST}.
-   */
-  @SimpleFunction(description = "<p>Makes this sprite bounce, as if off a wall.  " +
-      "For normal bouncing, the edge argument should be the one returned by EdgeReached.</p>")
-  public void Bounce(int edge) {
-    MoveIntoBounds();
-
-    // Normalize heading to [0, 360)
-    double normalizedAngle = userHeading % 360;
-    // The following step is necessary because Java's modulus operation yields a
-    // negative number if the dividend is negative and the divisor is positive.
-    if (normalizedAngle < 0) {
-      normalizedAngle += 360;
-    }
-
-    // Only transform heading if sprite was moving in that direction.
-    // This avoids oscillations.
-    if ((edge == Component.DIRECTION_EAST
-         && (normalizedAngle < 90 || normalizedAngle > 270))
-        || (edge == Component.DIRECTION_WEST
-            && (normalizedAngle > 90 && normalizedAngle < 270))) {
-      Heading(180 - normalizedAngle);
-    } else if ((edge == Component.DIRECTION_NORTH
-                && normalizedAngle > 0 && normalizedAngle < 180)
-               || (edge == Component.DIRECTION_SOUTH && normalizedAngle > 180)) {
-      Heading(360 - normalizedAngle);
-    } else if ((edge == Component.DIRECTION_NORTHEAST
-                && normalizedAngle > 0 && normalizedAngle < 90)
-              || (edge == Component.DIRECTION_NORTHWEST
-                  && normalizedAngle > 90 && normalizedAngle < 180)
-              || (edge == Component.DIRECTION_SOUTHWEST
-                  && normalizedAngle > 180 && normalizedAngle < 270)
-              || (edge == Component.DIRECTION_SOUTHEAST && normalizedAngle > 270)) {
-      Heading(180 + normalizedAngle);
-    }
-  }
-
+  
   // This is primarily used to enforce raising only
   // one {@link #CollidedWith(Sprite)} event per collision but is also
   // made available to the Simple programmer.
@@ -578,18 +773,7 @@ public abstract class Sprite extends VisibleComponent
     return registeredCollisions.contains(other);
   }
 
-  /**
-   * Moves the sprite back in bounds if part of it extends out of bounds,
-   * having no effect otherwise. If the sprite is too wide to fit on the
-   * canvas, this aligns the left side of the sprite with the left side of the
-   * canvas. If the sprite is too tall to fit on the canvas, this aligns the
-   * top side of the sprite with the top side of the canvas.
-   */
-  @SimpleFunction
-  public void MoveIntoBounds() {
-    moveIntoBounds(canvas.Width(), canvas.Height());
-  }
-
+  
   /**
    * Moves sprite directly to specified point.
    *
@@ -597,8 +781,7 @@ public abstract class Sprite extends VisibleComponent
    * @param y the y-coordinate
    */
   @SimpleFunction(
-    description = "<p>Moves the sprite so that its left top corner is at " +
-    "the specfied x and y coordinates.</p>")
+    description = "Moves the sprite to new X Y coordinates")
   public void MoveTo(double x, double y) {
     xLeft = x;
     yTop = y;
@@ -611,15 +794,12 @@ public abstract class Sprite extends VisibleComponent
    * @param target the other sprite to point towards
    */
   @SimpleFunction(
-    description = "<p>Turns the sprite to point towards a designated " +
-    "target sprite. The new heading will be parallel to the line joining " +
-    "the centerpoints of the two sprites.</p>")
-  public void PointTowards(Sprite target) {
-    Heading(-Math.toDegrees(Math.atan2(
-        // we adjust for the fact that the sprites' X() and Y()
-        // are not the center points.
-        target.Y() - Y() + (target.Height() - Height()) / 2,
-        target.X() - X() + (target.Width() - Width()) / 2)));
+    description = "Turns the sprite to point towards a target sprite. " +
+    "Set follow to True will cause the sprite to keep changing heading " +
+    "as the target sprite moves")
+  public void PointTowards(Sprite target, boolean follow) {
+    Heading(AngleTowards(target));
+    targetObject = follow ? target : null;
   }
 
   /**
@@ -629,14 +809,9 @@ public abstract class Sprite extends VisibleComponent
    * @param y parameter of the point to turn to
    */
   @SimpleFunction(
-    description = "<p>Turns the sprite to point towards the point " +
-    "with coordinates as (x, y).</p>")
+    description = "Turns the sprite to point in the direction of the X, Y coordinates")
   public void PointInDirection(double x, double y) {
-    Heading(-Math.toDegrees(Math.atan2(
-        // we adjust for the fact that the sprite's X() and Y()
-        // is not the center point.
-        y - Y() - Height() / 2,
-        x - X() - Width() / 2)));
+     Heading(AngleToPoint(x,y));
   } 
 
   // Internal methods supporting move-related functionality
@@ -657,28 +832,75 @@ public abstract class Sprite extends VisibleComponent
       canvas.getView().invalidate();
       return;
     }
-    int edge = hitEdge();
-    if (edge != Component.DIRECTION_NONE) {
-      EdgeReached(edge);
-    }
-    canvas.registerChange(this);
+   // int edge = hitEdge();
+   // if (edge != Component.DIRECTION_NONE) {
+   //   EdgeReached(edge);
+   // }
+   if (overWestEdge() || overNorthEdge() || overEastEdge() || overSouthEdge()) {
+     EdgeReached(overNorthEdge(), overSouthEdge(), overWestEdge(), overEastEdge());
+     if (Height() > canvas.Height() && boundaryBottomEnabled) {
+       
+     } else {
+       moveIntoBounds();
+     }
+   }
+   canvas.registerChange(this);
+    
   }
+
+  
+  //-------------------------------------------------------------------------------------------------------------------
+  //Enhancement 5 - custom boundary
+  //BoundaryTopEnabled
+  //BoundaryBottomEnabled
+  //BoundaryLeftEnabled
+  //BoundaryRightEnabled
+  //CanvasWrapAroundEnabled
 
   /**
-   * Specifies which edge of the canvas has been hit by the Sprite, if
-   * any, moving the sprite back in bounds.
-   *
-   * @return {@link Component#DIRECTION_NONE} if no edge has been hit, or a
-   *         direction (e.g., {@link Component#DIRECTION_NORTHEAST}) if that
-   *         edge of the canvas has been hit
+   * CanvasBoundaryEnabled(boolean top, boolean bottom, boolean left, boolean right, boolean canvasWrapRound) -
+   * Switch on/off canvas boundary
    */
-  protected int hitEdge() {
-    if (!canvas.ready()) {
-      return Component.DIRECTION_NONE;
-    }
-
-    return hitEdge(canvas.Width(), canvas.Height());
+  @SimpleFunction(
+      description = "Set canvas boundary on/off and allow sprite to auto wrap to oppisite side of canvas")
+  public void CanvasBoundaryEnabled(boolean topEdge, boolean bottomEdge, boolean leftEdge, boolean rightEdge, boolean canvasWrapRound) {
+    boundaryTopEnabled = topEdge;
+    boundaryBottomEnabled = bottomEdge;
+    boundaryLeftEnabled = leftEdge;
+    boundaryRightEnabled = rightEdge;
+    canvasWrapAroundEnabled = canvasWrapRound;
   }
+  
+  @SimpleProperty(
+    description = "Top canvas boundary on/off")
+  public boolean BoundaryTopEnabled() {
+    return boundaryTopEnabled;
+  }
+
+  @SimpleProperty(
+    description = "Top canvas boundary on/off")
+  public boolean BoundaryBottomEnabled() {
+    return boundaryBottomEnabled;
+  }
+
+  @SimpleProperty(
+    description = "Left canvas boundary on/off")
+  public boolean BoundaryLeftEnabled() {
+    return boundaryLeftEnabled;
+  }
+
+  @SimpleProperty(
+    description = "Right canvas boundary on/off")
+  public boolean BoundaryRightEnabled() {
+    return boundaryRightEnabled;
+  }
+
+  @SimpleProperty(
+    description = "Sprite appears on oppisite canvas edge on/off")
+  public boolean CanvasWrapAroundEnabled() {
+    return canvasWrapAroundEnabled;
+  }
+
 
   /**
    * Moves the sprite back in bounds if part of it extends out of bounds,
@@ -687,53 +909,66 @@ public abstract class Sprite extends VisibleComponent
    * canvas. If the sprite is too tall to fit on the canvas, this aligns the
    * top side of the sprite with the top side of the canvas.
    */
-  @SimpleFunction
-  protected final void moveIntoBounds(int canvasWidth, int canvasHeight) {
+  protected final void moveIntoBounds() {
     boolean moved = false;
 
-    // We set the xLeft and/or yTop fields directly, instead of calling X(123) and Y(123), to avoid
-    // having multiple calls to registerChange.
 
-    // Check if the sprite is too wide to fit on the canvas.
-    if (Width() > canvasWidth) {
-      // Sprite is too wide to fit. If it isn't already at the left edge, move it there.
-      // It is important not to set moved to true if xLeft is already 0. Doing so can cause a stack
-      // overflow.
-      if (xLeft != 0) {
-        xLeft = 0;
-        moved = true;
-      }
-    } else if (overWestEdge()) {
-      xLeft = 0;
-      moved = true;
-    } else if (overEastEdge(canvasWidth)) {
-      xLeft = canvasWidth - Width();
-      moved = true;
-    }
-
-    // Check if the sprite is too tall to fit on the canvas. We don't want to cause a stack
-    // overflow by moving the sprite to the top edge and then to the bottom edge, repeatedly.
-    if (Height() > canvasHeight) {
-      // Sprite is too tall to fit. If it isn't already at the top edge, move it there.
-      // It is important not to set moved to true if yTop is already 0. Doing so can cause a stack
-      // overflow.
-      if (yTop != 0) {
-        yTop = 0;
-        moved = true;
-      }
-    } else if (overNorthEdge()) {
+    if (boundaryTopEnabled && yTop < 0) {
+      //Top canvas boundary on and sprite hits top stop sprite move beyond top boundary
       yTop = 0;
       moved = true;
-    } else if (overSouthEdge(canvasHeight)) {
-      yTop = canvasHeight - Height();
+    }
+    if (!boundaryTopEnabled && yTop < 0 - Height()) {
+      //Top canvas boundary off and sprite canvas wrap around on the sprite positioned on bottom of canvas
+      //Top canvas boundary off and sprite canvas wrap around off the sprite positioned outside top of canvas
+      yTop = canvasWrapAroundEnabled ? canvas.Height() + Height() : -Height();
       moved = true;
     }
 
-    // Then, call registerChange (just once!) if necessary.
+    if (boundaryBottomEnabled && yTop > canvas.Height() - Height()) {
+      //Bottom canvas boundary on and sprite hits bottom stop sprite move beyond bottom boundary
+      yTop = canvas.Height() - Height();
+      moved = true;
+    }
+    if (!boundaryBottomEnabled && yTop > canvas.Height() + Height()) {
+      //Bottom canvas boundary off and sprite canvas wrap around on the sprite positioned on top of canvas
+      //Bottom canvas boundary off and sprite canvas wrap around off the sprite positioned outside bottom of canvas
+      yTop = canvasWrapAroundEnabled ? -Height() : canvas.Height() + Height();
+      moved = true;
+    }
+
+    if (boundaryLeftEnabled && xLeft < 0) {
+      //Left canvas boundary on and sprite hits left stop sprite move beyond left boundary
+      xLeft = 0;
+      moved = true;
+    }
+    if (!boundaryLeftEnabled && xLeft < 0 - Width()){
+      //Left canvas boundary off and sprite canvas wrap around on the sprite positioned on right of canvas
+      //Left canvas boundary off and sprite canvas wrap around off the sprite positioned outside left of canvas
+     xLeft = canvasWrapAroundEnabled ? canvas.Width() + Width() : -Width();
+      moved = true;
+    }
+
+    if (boundaryRightEnabled && xLeft > canvas.Width() - Width()) {
+      //Right canvas boundary on and sprite hits right stop sprite move beyond right boundary
+      xLeft = canvas.Width() - Width();
+      moved = true;
+    }
+    if (!boundaryRightEnabled && xLeft > canvas.Width() + Width()) {
+      //Right canvas boundary off and sprite canvas wrap around on the sprite positioned on left of canvas
+      //Right canvas boundary off and sprite canvas wrap around off the sprite positioned outside right of canvas
+      xLeft = canvasWrapAroundEnabled ? -Width() : canvas.Width() + Width();
+      moved = true;
+    }
+
+
+    // Then registerChange (just once!) if sprite has hit a boundary.
     if (moved) {
       registerChange();
     }
   }
+  //-------------------------------------------------------------------------------------------------------------------
+
 
   /**
    * Updates the x- and y-coordinates based on the heading and speed.  The
@@ -751,67 +986,18 @@ public abstract class Sprite extends VisibleComponent
     return xLeft < 0;
   }
 
-  private final boolean overEastEdge(int canvasWidth) {
-    return xLeft + Width() > canvasWidth;
+  private final boolean overEastEdge() {
+    return xLeft + Width() > canvas.Width();
   }
 
   private final boolean overNorthEdge() {
     return yTop < 0;
   }
 
-  private final boolean overSouthEdge(int canvasHeight) {
-    return yTop + Height() > canvasHeight;
+  private final boolean overSouthEdge() {
+    return yTop + Height() > canvas.Height();
   }
 
-  protected int hitEdge(int canvasWidth, int canvasHeight) {
-    // Determine in which direction(s) we are out of bounds, if any.
-    // Note that more than one boolean value can be true.  For example, if
-    // the sprite is past the northwest boundary, north and west will be true.
-    boolean west = overWestEdge();
-    boolean north = overNorthEdge();
-    boolean east = overEastEdge(canvasWidth);
-    boolean south = overSouthEdge(canvasHeight);
-
-    // If no edge was hit, return.
-    if (!(north || south || east || west)) {
-      return Component.DIRECTION_NONE;
-    }
-
-    // Move the sprite back into bounds.  Note that we don't just reverse the
-    // last move, since that might have been multiple pixels, and we'd only need
-    // to undo part of it.
-    MoveIntoBounds();
-
-    // Determine the appropriate return value.
-    if (west) {
-      if (north) {
-        return Component.DIRECTION_NORTHWEST;
-      } else if (south) {
-        return Component.DIRECTION_SOUTHWEST;
-      } else {
-        return Component.DIRECTION_WEST;
-      }
-    }
-
-    if (east) {
-      if (north) {
-        return Component.DIRECTION_NORTHEAST;
-      } else if (south) {
-        return Component.DIRECTION_SOUTHEAST;
-      } else {
-        return Component.DIRECTION_EAST;
-      }
-    }
-
-    if (north) {
-      return Component.DIRECTION_NORTH;
-    }
-    if (south) {
-      return Component.DIRECTION_SOUTH;
-    }
-
-    throw new AssertionFailure("Unreachable code hit in Sprite.hitEdge()");
-  }
 
   /**
    * Provides the bounding box for this sprite.  Modifying the returned value
@@ -903,14 +1089,294 @@ public abstract class Sprite extends VisibleComponent
   /**
    * Moves and redraws sprite, registering changes.
    */
-  public void alarm() {
+  public void sharedAlarm() {
     // This check on initialized is currently redundant, since registerChange()
     // checks it too.
-    if (initialized && speed != 0) {
-      updateCoordinates();
-      registerChange();
+    if (initialized) {
+
+      //Apply smooth speed change
+      if (speedChangeIncrements != 0) {
+        speed = speed + speedChangeIncrements;
+        if ((speedChangeIncrements < 0 && speed <= speedChangeTo) || (speedChangeIncrements > 0 && speed >= speedChangeTo)) {
+          speedChangeIncrements = 0;
+          speed = speedChangeTo;
+        }
+      }
+
+      //Sprite effected by gravity
+      if (canvas.GravityEnabled() || !useCanvasGravity) {
+
+        //Step 1b - If canvas.gravityInverted the up is down and down is up
+        float dummyWeight = weight;
+        if (UseCanvasGravity() && canvas.GravityInverted() && canvas.GravityEnabled()) {
+          dummyWeight = -weight;
+        }
+
+
+        // If sprite is past the sides of the canvas and bounceEnabled then change heading
+        if (xLeft <= 0 || xLeft + Width() >= canvas.Width()) {
+          if (bounceEnabled) {
+            SetHeading(Heading() + 180);
+          }
+        }
+
+        // If sprite is past the top/bottom of the canvas
+        if (yTop <= 0 || yTop + Height() >= canvas.Height()) {
+          boolean reverseDirection = false;
+          if (dummyWeight<0 && yTop + Height() >= canvas.Height()) { //if light sprite and hits bottom of canvas
+            reverseDirection = true;
+          }
+
+          if (dummyWeight>0 && yTop <= 0) {
+            reverseDirection = true;
+          }
+
+          if (reverseDirection || bounceEnabled) {
+            speed = speed /2;
+            SetHeading(ChangeHeading());
+            gravityEffect();
+          } else {
+            speed = 0;
+          }
+        } else {
+          gravityEffect();
+        }
+      }
+
+
+      //Make sprite point in detection of target sprite
+      if (targetObject!=null) {
+        if (targetDistance == 0) {
+          PointTowards(targetObject, true);         
+        } else {
+          targetX = targetObject.X() + (targetObject.Width() / 2);
+          targetY = targetObject.Y() + (targetObject.Height() / 2);
+        }
+      } 
+      
+      if (targetDistance != 0) {
+        orbitTarget();     
+      }
+            
+      if (speed != 0) {
+        updateCoordinates();
+        registerChange();
+      } 
+    
     }
+    UserBlock();
+    
   }
+
+  /**
+   * Change sprite to next position based or targetDistance and direction
+  */
+  public void orbitTarget() {
+    //targetX
+    //targetY
+    //targetDistance
+    //orbitClockwise
+    if (orbitClockwise) {
+      degrees = degrees - speed;
+      SetHeading(degrees - 90);
+    } else {
+      degrees = degrees + speed;
+      SetHeading(degrees + 90);
+    }
+    //if degrees is not between 0 - 359 recalculate so it's within these limits
+    degrees = degrees - (Math.floor(degrees / 360) * 360); 
+    degrees = degrees < 0 ? 360 + degrees : degrees;
+
+   // X(targetX + targetDistance + Math.cos(Math.toRadians(degrees)));
+   // Y(targetY + targetDistance + Math.sin(Math.toRadians(degrees)));
+
+    double opp = Math.sin(Math.toRadians(degrees)) * targetDistance;
+    double adj = Math.sqrt((targetDistance * targetDistance) - (opp * opp));
+
+    if (degrees > 90 && degrees < 270) {
+  //    X(targetX - adj);
+      X((targetX - (Width()/2)) - adj);
+    } else {
+  //    X(targetX + adj);
+      X((targetX - (Width()/2)) + adj);
+    }
+//    Y(targetY + opp);  
+//    Y((targetY - (Height()/2)) + opp);
+
+    Y((targetY - (Height()/2)) - opp);
+    
+
+  }
+
+  /**
+   * Change speed and heading based on weight
+  */
+  public void gravityEffect() {
+    // Step 1 - calculate current direction of sprite
+    boolean pointDown = true;
+    boolean facingLeft = true;
+    if (Heading() >= 0 && Heading() < 90 ) {
+      //facing ^>
+      pointDown = false;
+      facingLeft = false;
+    } else if (Heading() >= 90 && Heading() < 180 ) {
+      //facing <^
+      pointDown = false;
+      facingLeft = true;
+    } else if (Heading() >= 180 && Heading() < 270 ) {
+      //facing <v 
+      pointDown = true;
+      facingLeft = true;
+    } else if (Heading() >= 270 && Heading() < 360 ) {
+      //facing v>
+      pointDown = true;
+      facingLeft = false;
+    }
+
+
+    //Step 1b - If canvas.gravityInverted the up is down and down is up
+    float dummyWeight = weight;
+    if (UseCanvasGravity() && canvas.GravityInverted() && canvas.GravityEnabled()) {
+      dummyWeight = -weight;
+    }
+
+
+    // Step 2 - calculate from weight whether the sprite should move up or down
+    // which effects the speed and direction of turn
+    float newSpeed = 0;
+    //set direction and speed change flag so that sprite is heavy and will head down
+    float spriteWeight = dummyWeight;
+
+
+    boolean speedUp = pointDown ? true : false;
+    boolean turnClockwise = facingLeft ? false : true;
+
+    if (dummyWeight < 0) {
+      //If sprite is light set direction and speed change flag up head down
+      spriteWeight = 0 - dummyWeight;
+      speedUp = pointDown ? false : true;
+      turnClockwise = facingLeft ? true : false;
+    }
+    
+    // Step 3 - calculate and adjust new speed 
+    speedChange = (float) (spriteWeight * 0.001);
+    newSpeed = speedUp ? speed + speedChange : speed - speedChange;  
+    speed = newSpeed < 0 ? 0 : newSpeed;
+    
+    // Step 4 - calculate and adjust new heading 
+    double newHeading = Heading();
+    if (speed <= speedChange) {
+      newHeading = ChangeHeading();
+      speed = speedChange;    
+    } else {
+      if (speed <= spriteWeight) {
+        newHeading = turnClockwise ? Heading() - 1 : Heading() + 1;
+      }
+    }
+    SetHeading(newHeading);
+  }
+
+  /**
+   * Change heading when hits surface
+   */
+  public double ChangeHeading() {
+    //(TODO)Gareth Haylings - adjust heading so works out the correct adjacent offset
+    return 270 - (Heading() - 90);
+  }
+
+  /**
+   * Calculate the distance of the sprite from another sprite
+  */
+  @SimpleFunction(description = "Distance to target sprite")
+  public double DistanceTo(Sprite target) {
+    double centerXTarget = target.X() + (target.Width() / 2);
+    double centerYTarget = target.Y() + (target.Height() / 2);
+    return DistanceToPoint(centerXTarget, centerYTarget);
+  }
+
+
+  /**
+   * Calculate the distance of sprite to xy position
+   */
+  @SimpleFunction(description = "Distance to point")
+  public double DistanceToPoint(double x, double y) {
+    double adj;
+    double opp;
+    double centerX = X() + (Width() / 2);
+    double centerY = Y() + (Height() / 2);
+    double centerXTarget = x;
+    double centerYTarget = y;
+        
+    if (centerXTarget > centerX) {
+      adj =  centerXTarget - centerX;
+    } else {
+      adj =  centerX - centerXTarget;
+    }
+    if (centerYTarget > centerY) {
+      opp = centerYTarget - centerY;
+    } else {
+      opp = centerY - centerYTarget;
+    }
+    return Math.sqrt((adj * adj) + (opp * opp));
+  }
+
+
+  /**
+   * Calculate the angle of sprite to target
+   */
+  @SimpleFunction(description = "Angle to target sprite")
+  public double AngleTowards(Sprite target) {
+    double angle = -Math.toDegrees(Math.atan2(
+             // we adjust for the fact that the sprites' X() and Y()
+             // are not the center points.
+             target.Y() - Y() + (target.Height() - Height()) / 2,
+             target.X() - X() + (target.Width() - Width()) / 2));
+   
+    return angle < 0 ? 360 + angle : angle;
+    
+    //return -Math.toDegrees(Math.atan2(
+   //    // we adjust for the fact that the sprites' X() and Y()
+   //     // are not the center points.
+   //     target.Y() - Y() + (target.Height() - Height()) / 2,
+   //     target.X() - X() + (target.Width() - Width()) / 2));
+  }
+
+
+  /**
+   * Calculate the angle of sprite to xy position
+   */
+  @SimpleFunction(description = "Angle to point")
+  public double AngleToPoint(double x, double y) {
+    double angle = -Math.toDegrees(Math.atan2(
+        // we adjust for the fact that the sprite's X() and Y()
+        // is not the center point.
+        y - Y() - Height() / 2,
+        x - X() - Width() / 2));
+    
+    
+    return angle < 0 ? 360 + angle : angle;
+    
+    //return -Math.toDegrees(Math.atan2(
+    //    // we adjust for the fact that the sprite's X() and Y()
+    //    // is not the center point.
+    //    y - Y() - Height() / 2,
+    //    x - X() - Width() / 2));
+  }
+
+
+
+  //---------------------------------------------------------------------------------------------
+  //Temp block for debugging
+  @SimpleEvent
+  public void UserBlock() {
+    postEvent(this, "UserBlock");
+  }
+
+  @SimpleProperty
+  public double ObitDegrees() {
+    return degrees;
+  }
+  //---------------------------------------------------------------------------------------------
 
   // Component implementation
 

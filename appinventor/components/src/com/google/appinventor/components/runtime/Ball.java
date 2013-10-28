@@ -61,7 +61,7 @@ public final class Ball extends Sprite {
   @Override
   protected void onDraw(Canvas canvas) {
     if (visible) {
-      canvas.drawCircle((float) xLeft + radius, (float) yTop + radius, radius, paint);
+      canvas.drawCircle((float) (xLeft - originOffsetX), (float) (yTop - originOffsetY), radius, paint);
     }
   }
 
@@ -142,5 +142,13 @@ public final class Ball extends Sprite {
       PaintUtil.changePaint(paint, Component.COLOR_BLACK);
     }
     registerChange();
+  }
+
+  /**
+   * Moves and redraws sprite, registering changes.
+   */
+  @Override
+  public void alarm(){
+    sharedAlarm();
   }
 }
