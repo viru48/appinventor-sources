@@ -149,18 +149,22 @@ public class ImageSprite extends Sprite {
     
     if (imageFillCanvas) {
       if (imageAspectRatioEnabled) {
-        if (imageWidth > imageHeight && canvas.Height() > canvas.Width()){
+        //If aspect ratio ON then calculate the best fit for the image on the canvas
+        if (canvas.Height() - (canvas.Width() * imageScaleRatio) > 0 ) {
           widthHint = canvas.Width();
           heightHint =(int) (canvas.Width() * imageScaleRatio);
         } else {
-          heightHint = canvas.Height();
           widthHint =  (int) (canvas.Height() / imageScaleRatio);
+          heightHint = canvas.Height();
         }
+        
       } else {
+        //If aspect ratio OFF then make the image fill the canvas
         widthHint = canvas.Width();
         heightHint = canvas.Height();
       }
     } else if (imageAutoSize) {
+      //If autosize then reset image with to size of original
       widthHint = (int) imageWidth;
       heightHint = (int) imageHeight;
     }
@@ -179,8 +183,6 @@ public class ImageSprite extends Sprite {
         yinit = (canvas.Height() / 2 ) - (heightHint / 2);
       } else {
         //offset sprite to orgin point
-       // xinit = (int) xLeft;
-       // yinit = (int) yTop;
         xinit =  (int) Math.round(xLeft - OriginOffsetX());
         yinit =  (int) Math.round(yTop - OriginOffsetY());
       }
@@ -288,7 +290,6 @@ public class ImageSprite extends Sprite {
       imageWidth = drawable.getBitmap().getWidth();
       imageHeight = drawable.getBitmap().getHeight();
       imageScaleRatio = imageHeight / imageWidth;
-      //imageScaleRatio = imageWidth > imageHeight ? imageHeight / imageWidth : imageWidth / imageHeight;
     } else {
       unrotatedBitmap = null;
     }
