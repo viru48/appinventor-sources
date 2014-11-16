@@ -1517,6 +1517,35 @@
       #t
       #f))
 
+;; Block added to calulate convert various units
+(define (math-convert-dec-hex x)
+  (if (is-number? x)
+    (string-to-upper-case (number->string x 16))
+    "error"
+  )
+)
+
+(define (math-convert-hex-dec x)
+  (if (Pattern:matches "[0-9a-fA-F]*" x)
+    (string->number (string-to-upper-case x) 16)
+    "error"
+  )
+)
+
+(define (math-convert-dec-bin x)
+  (if (is-number? x)
+    (number->string x 2)
+    "error"
+  )
+)
+
+(define (math-convert-bin-dec x)
+  (if (Pattern:matches "[01]*" x)
+    (string->number x 2)
+    "error"
+  )
+)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; End of Math implementation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1000,3 +1000,72 @@ Blockly.Blocks['math_is_a_number'] = {
   },
   typeblock: [{translatedName: Blockly.Msg.LANG_MATH_IS_A_NUMBER_INPUT_NUM}]
 };
+
+
+
+Blockly.Blocks['math_convert_unit'] = {
+  // Block added to calulate convert various units
+  category : Blockly.Msg.LANG_CATEGORY_MATH,
+  helpUrl: function() {
+      var mode = this.getFieldValue('OP');
+      return Blockly.Blocks.math_convert_unit.HELPURLS[mode];
+  },
+  init : function() {
+    this.setColour(Blockly.MATH_CATEGORY_HUE);
+    this.setOutput(true, Blockly.Blocks.Utilities.YailTypeToBlocklyType("text",Blockly.Blocks.Utilities.OUTPUT));
+    this.appendValueInput('UNIT')
+        .appendField(Blockly.Msg.LANG_MATH_CONVERT_UNITS_TITLE_CONVERT)
+        .appendField(new Blockly.FieldDropdown(this.OPERATORS), 'OP');
+    // Assign 'this' to a variable for use in the closures below.
+    var thisBlock = this;
+    this.setTooltip(function() {
+      var mode = thisBlock.getFieldValue('OP');
+      return Blockly.Blocks.math_convert_unit.TOOLTIPS[mode];
+    });
+  },
+  typeblock: [{
+    translatedName: Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_DEC_TO_HEX,
+    dropDown: {
+      titleName: 'OP',
+      value: 'DEC_TO_HEX'
+    }
+  },{
+    translatedName: Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_HEX_TO_DEC,
+    dropDown: {
+      titleName: 'OP',
+      value: 'HEX_TO_DEC'
+    }
+  },{
+    translatedName: Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_DEC_TO_BIN,
+    dropDown: {
+      titleName: 'OP',
+      value: 'DEC_TO_BIN'
+    }
+  },{
+    translatedName: Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_BIN_TO_DEC,
+    dropDown: {
+      titleName: 'OP',
+      value: 'BIN_TO_DEC'
+    }
+  }]
+};
+
+Blockly.Blocks.math_convert_unit.OPERATORS =
+  [[ Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_DEC_TO_HEX, 'DEC_TO_HEX' ],
+   [ Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_HEX_TO_DEC, 'HEX_TO_DEC' ],
+   [ Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_DEC_TO_BIN, 'DEC_TO_BIN' ],
+   [ Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_BIN_TO_DEC, 'BIN_TO_DEC' ]];
+
+Blockly.Blocks.math_convert_unit.TOOLTIPS = {
+  DEC_TO_HEX : Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_DEC_TO_HEX,
+  HEX_TO_DEC : Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_HEX_TO_DEC,
+  DEC_TO_BIN : Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_DEC_TO_BIN,
+  BIN_TO_DEC : Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_BIN_TO_DEC
+};
+
+Blockly.Blocks.math_convert_unit.HELPURLS = {
+  DEC_TO_HEX : Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_DEC_TO_HEX,
+  HEX_TO_DEC : Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_HEX_TO_DEC,
+  DEC_TO_BIN : Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_DEC_TO_BIN,
+  BIN_TO_DEC : Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_BIN_TO_DEC
+};

@@ -402,3 +402,22 @@ Blockly.Yail['math_is_a_number'] = function() {
       + Blockly.Yail.YAIL_DOUBLE_QUOTE + Blockly.Yail.YAIL_CLOSE_COMBINATION;
   return [ code, Blockly.Yail.ORDER_ATOMIC ];
 };
+
+
+Blockly.Yail['math_convert_unit'] = function() {
+  // Basic arithmetic operators.
+  var mode = this.getFieldValue('OP');
+  var tuple = Blockly.Yail.math_convert_unit.OPERATORS[mode];
+  var yailname = tuple[0];
+  var description = tuple[1];
+  var argument0 = Blockly.Yail.valueToCode(this, 'UNIT', Blockly.Yail.ORDER_NONE) || 0;
+  var code ="(call-yail-primitive " + yailname + " (*list-for-runtime* " + argument0 +") " + description + ")";
+  return [ code, Blockly.Yail.ORDER_ATOMIC ];
+};
+
+Blockly.Yail.math_convert_unit.OPERATORS = {
+  DEC_TO_HEX: ['math-convert-dec-hex', "'(number) \"convert Dec to Hex\""],
+  HEX_TO_DEC: ['math-convert-hex-dec', "'(text) \"convert Hex to Dec\""],
+  DEC_TO_BIN: ['math-convert-dec-bin', "'(number) \"convert Dec to Hex\""],
+  BIN_TO_DEC: ['math-convert-bin-dec', "'(text) \"convert Hex to Dec\""]
+};

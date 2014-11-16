@@ -501,6 +501,20 @@ Blockly.Msg.en.switch_language_to_english = {
     Blockly.Msg.LANG_MATH_IS_A_NUMBER_INPUT_NUM = 'is a number?';
     Blockly.Msg.LANG_MATH_IS_A_NUMBER_TOOLTIP = 'Tests if something is a number.';
 
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_TITLE_CONVERT = 'convert unit';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_DEC_TO_HEX = 'dec to hex';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_HEX_TO_DEC = 'hex to dec';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_DEC_TO_BIN = 'dec to binary';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_OP_BIN_TO_DEC = 'binary to dec';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_DEC_TO_HEX = 'Returns the conversion from decimal to hexdecimal';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_HEX_TO_DEC = 'Returns the conversion from hexdecimal to decimal';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_DEC_TO_BIN = 'Returns the conversion from decimal to binary';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_TOOLTIP_BIN_TO_DEC = 'Returns the conversion from binary to decimal';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_DEC_TO_HEX = 'Returns the conversion from decimal to hexdecimal';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_HEX_TO_DEC = 'Returns the conversion from hexdecimal to decimal';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_DEC_TO_BIN = 'Returns the conversion from decimal to binary';
+    Blockly.Msg.LANG_MATH_CONVERT_UNITS_HELPURL_BIN_TO_DEC = 'Returns the conversion from binary to decimal';
+
 // Text Blocks.
     Blockly.Msg.LANG_CATEGORY_TEXT = 'Text';
     Blockly.Msg.LANG_TEXT_TEXT_HELPURL = 'http://appinventor.mit.edu/explore/ai2/support/blocks/text#string';

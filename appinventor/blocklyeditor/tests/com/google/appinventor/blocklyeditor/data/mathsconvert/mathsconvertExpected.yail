@@ -1,0 +1,203 @@
+#|
+$Source $Yail
+|#
+
+(define-form appinventor.ai_test.Convert_Unit_Demo.Screen1 Screen1)
+(require <com.google.youngandroid.runtime>)
+
+(def (p$PROC_display_results $decimal)  (set-and-coerce-property! 'LBL_Message_import_error 'Visible #f 'boolean)(set-and-coerce-property! 'PANEL_results 'Visible #f 'boolean)(if (call-yail-primitive yail-equal? (*list-for-runtime* (lexical-value $decimal) "error") '(any any) "=") (begin   (set-and-coerce-property! 'LBL_Message_import_error 'Visible #t 'boolean)) (begin   (set-and-coerce-property! 'PANEL_results 'Visible #t 'boolean)(set-and-coerce-property! 'LBL_dec 'Text (lexical-value $decimal) 'text)(set-and-coerce-property! 'LBL_hex 'Text (call-yail-primitive math-convert-dec-hex (*list-for-runtime* (lexical-value $decimal)) '(number) "convert Dec to Hex") 'text)(set-and-coerce-property! 'LBL_bin 'Text (call-yail-primitive math-convert-dec-bin (*list-for-runtime* (lexical-value $decimal)) '(number) "convert Dec to Hex") 'text))))
+;;; Screen1
+
+(do-after-form-creation (set-and-coerce-property! 'Screen1 'AlignHorizontal 3 'number)
+ (set-and-coerce-property! 'Screen1 'ScreenOrientation "portrait" 'text)
+ (set-and-coerce-property! 'Screen1 'Title "Conversion demo" 'text)
+)
+
+;;; HorizontalArrangement1
+
+(add-component Screen1 HorizontalArrangement HorizontalArrangement1 
+(set-and-coerce-property! 'HorizontalArrangement1 'Width -2 'number)
+
+)
+
+;;; Label1
+
+(add-component HorizontalArrangement1 Label Label1 
+(set-and-coerce-property! 'Label1 'Text "Input value:" 'text)
+
+)
+
+;;; TXT_input
+
+(add-component HorizontalArrangement1 TextBox TXT_input 
+(set-and-coerce-property! 'TXT_input 'Hint "0" 'text)
+
+(set-and-coerce-property! 'TXT_input 'Text "1" 'text)
+
+(set-and-coerce-property! 'TXT_input 'Width -2 'number)
+
+)
+
+;;; BTN_Calc_dec
+
+(add-component Screen1 Button BTN_Calc_dec 
+(set-and-coerce-property! 'BTN_Calc_dec 'Text "Convert from Decimal" 'text)
+
+(set-and-coerce-property! 'BTN_Calc_dec 'Width -2 'number)
+
+)
+
+(define-event BTN_Calc_dec TouchDown()(set-this-form)
+    ((get-var p$PROC_display_results) (if (call-yail-primitive is-number? (*list-for-runtime* (get-property 'TXT_input 'Text)) '(any) "is a number?") (get-property 'TXT_input 'Text) "error")))
+;;; BTN_Calc_hex
+
+(add-component Screen1 Button BTN_Calc_hex 
+(set-and-coerce-property! 'BTN_Calc_hex 'Text "Convert from Hexdecimal" 'text)
+
+(set-and-coerce-property! 'BTN_Calc_hex 'Width -2 'number)
+
+)
+
+(define-event BTN_Calc_hex TouchDown()(set-this-form)
+    ((get-var p$PROC_display_results) (call-yail-primitive math-convert-hex-dec (*list-for-runtime* (get-property 'TXT_input 'Text)) '(text) "convert Hex to Dec")))
+;;; BTN_Calc_bin
+
+(add-component Screen1 Button BTN_Calc_bin 
+(set-and-coerce-property! 'BTN_Calc_bin 'Text "Convert from Binary" 'text)
+
+(set-and-coerce-property! 'BTN_Calc_bin 'Width -2 'number)
+
+)
+
+(define-event BTN_Calc_bin TouchDown()(set-this-form)
+    ((get-var p$PROC_display_results) (call-yail-primitive math-convert-bin-dec (*list-for-runtime* (get-property 'TXT_input 'Text)) '(text) "convert Hex to Dec")))
+;;; Label9
+
+(add-component Screen1 Label Label9 
+(set-and-coerce-property! 'Label9 'Text "Text for Label9" 'text)
+
+(set-and-coerce-property! 'Label9 'TextColor #xFFFFFFFF 'number)
+
+)
+
+;;; LBL_Message_import_error
+
+(add-component Screen1 Label LBL_Message_import_error 
+(set-and-coerce-property! 'LBL_Message_import_error 'FontBold #t 'boolean)
+
+(set-and-coerce-property! 'LBL_Message_import_error 'FontSize 20 'number)
+
+(set-and-coerce-property! 'LBL_Message_import_error 'Text "Invalid input!!" 'text)
+
+(set-and-coerce-property! 'LBL_Message_import_error 'TextColor #xFFFF0000 'number)
+
+(set-and-coerce-property! 'LBL_Message_import_error 'Visible #f 'boolean)
+
+)
+
+;;; PANEL_results
+
+(add-component Screen1 VerticalArrangement PANEL_results 
+(set-and-coerce-property! 'PANEL_results 'AlignHorizontal 3 'number)
+
+(set-and-coerce-property! 'PANEL_results 'Visible #f 'boolean)
+
+(set-and-coerce-property! 'PANEL_results 'Width -2 'number)
+
+)
+
+;;; Label2
+
+(add-component PANEL_results Label Label2 
+(set-and-coerce-property! 'Label2 'FontBold #t 'boolean)
+
+(set-and-coerce-property! 'Label2 'FontSize 18 'number)
+
+(set-and-coerce-property! 'Label2 'Text "Conversion Results" 'text)
+
+)
+
+;;; HorizontalArrangement2
+
+(add-component PANEL_results HorizontalArrangement HorizontalArrangement2 
+(set-and-coerce-property! 'HorizontalArrangement2 'Width -2 'number)
+
+)
+
+;;; Label3
+
+(add-component HorizontalArrangement2 Label Label3 
+(set-and-coerce-property! 'Label3 'Text "Decimal : " 'text)
+
+(set-and-coerce-property! 'Label3 'TextAlignment 2 'number)
+
+(set-and-coerce-property! 'Label3 'Width -2 'number)
+
+)
+
+;;; LBL_dec
+
+(add-component HorizontalArrangement2 Label LBL_dec 
+(set-and-coerce-property! 'LBL_dec 'Text "0" 'text)
+
+(set-and-coerce-property! 'LBL_dec 'Width -2 'number)
+
+)
+
+;;; HorizontalArrangement3
+
+(add-component PANEL_results HorizontalArrangement HorizontalArrangement3 
+(set-and-coerce-property! 'HorizontalArrangement3 'Width -2 'number)
+
+)
+
+;;; Label5
+
+(add-component HorizontalArrangement3 Label Label5 
+(set-and-coerce-property! 'Label5 'Text "Hexdecimal : " 'text)
+
+(set-and-coerce-property! 'Label5 'TextAlignment 2 'number)
+
+(set-and-coerce-property! 'Label5 'Width -2 'number)
+
+)
+
+;;; LBL_hex
+
+(add-component HorizontalArrangement3 Label LBL_hex 
+(set-and-coerce-property! 'LBL_hex 'Text "0" 'text)
+
+(set-and-coerce-property! 'LBL_hex 'Width -2 'number)
+
+)
+
+;;; HorizontalArrangement4
+
+(add-component PANEL_results HorizontalArrangement HorizontalArrangement4 
+(set-and-coerce-property! 'HorizontalArrangement4 'AlignHorizontal 3 'number)
+
+(set-and-coerce-property! 'HorizontalArrangement4 'Width -2 'number)
+
+)
+
+;;; Label7
+
+(add-component HorizontalArrangement4 Label Label7 
+(set-and-coerce-property! 'Label7 'Text "Binary :" 'text)
+
+(set-and-coerce-property! 'Label7 'TextAlignment 2 'number)
+
+(set-and-coerce-property! 'Label7 'Width -2 'number)
+
+)
+
+;;; LBL_bin
+
+(add-component HorizontalArrangement4 Label LBL_bin 
+(set-and-coerce-property! 'LBL_bin 'Text "0" 'text)
+
+(set-and-coerce-property! 'LBL_bin 'Width -2 'number)
+
+)
+
+(init-runtime)

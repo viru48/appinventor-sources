@@ -1,0 +1,214 @@
+<xml xmlns="http://www.w3.org/1999/xhtml">
+  <block type="component_event" id="1" x="228" y="63">
+    <mutation component_type="Button" instance_name="BTN_Calc_dec" event_name="TouchDown"></mutation>
+    <field name="COMPONENT_SELECTOR">BTN_Calc_dec</field>
+    <statement name="DO">
+      <block type="procedures_callnoreturn" id="2" inline="false">
+        <mutation name="PROC_display_results">
+          <arg name="decimal"></arg>
+        </mutation>
+        <field name="PROCNAME">PROC_display_results</field>
+        <value name="ARG0">
+          <block type="controls_choose" id="3" inline="false">
+            <value name="TEST">
+              <block type="math_is_a_number" id="4" inline="false">
+                <value name="NUM">
+                  <block type="component_set_get" id="5">
+                    <mutation component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="TXT_input"></mutation>
+                    <field name="COMPONENT_SELECTOR">TXT_input</field>
+                    <field name="PROP">Text</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <value name="THENRETURN">
+              <block type="component_set_get" id="6">
+                <mutation component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="TXT_input"></mutation>
+                <field name="COMPONENT_SELECTOR">TXT_input</field>
+                <field name="PROP">Text</field>
+              </block>
+            </value>
+            <value name="ELSERETURN">
+              <block type="text" id="7">
+                <field name="TEXT">error</field>
+              </block>
+            </value>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="component_event" id="8" x="232" y="219">
+    <mutation component_type="Button" instance_name="BTN_Calc_hex" event_name="TouchDown"></mutation>
+    <field name="COMPONENT_SELECTOR">BTN_Calc_hex</field>
+    <statement name="DO">
+      <block type="procedures_callnoreturn" id="9" inline="false">
+        <mutation name="PROC_display_results">
+          <arg name="decimal"></arg>
+        </mutation>
+        <field name="PROCNAME">PROC_display_results</field>
+        <value name="ARG0">
+          <block type="math_convert_unit" id="10" inline="false">
+            <field name="OP">HEX_TO_DEC</field>
+            <value name="UNIT">
+              <block type="component_set_get" id="11">
+                <mutation component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="TXT_input"></mutation>
+                <field name="COMPONENT_SELECTOR">TXT_input</field>
+                <field name="PROP">Text</field>
+              </block>
+            </value>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="component_event" id="12" x="231" y="321">
+    <mutation component_type="Button" instance_name="BTN_Calc_bin" event_name="TouchDown"></mutation>
+    <field name="COMPONENT_SELECTOR">BTN_Calc_bin</field>
+    <statement name="DO">
+      <block type="procedures_callnoreturn" id="13" inline="false">
+        <mutation name="PROC_display_results">
+          <arg name="decimal"></arg>
+        </mutation>
+        <field name="PROCNAME">PROC_display_results</field>
+        <value name="ARG0">
+          <block type="math_convert_unit" id="14" inline="false">
+            <field name="OP">BIN_TO_DEC</field>
+            <value name="UNIT">
+              <block type="component_set_get" id="15">
+                <mutation component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="TXT_input"></mutation>
+                <field name="COMPONENT_SELECTOR">TXT_input</field>
+                <field name="PROP">Text</field>
+              </block>
+            </value>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+  <block type="lexical_variable_set" id="16" inline="false" x="1817" y="271">
+    <field name="VAR"> </field>
+  </block>
+  <block type="procedures_defnoreturn" id="17" x="239" y="419">
+    <mutation>
+      <arg name="decimal"></arg>
+    </mutation>
+    <field name="NAME">PROC_display_results</field>
+    <field name="VAR0">decimal</field>
+    <statement name="STACK">
+      <block type="component_set_get" id="18" inline="false">
+        <mutation component_type="Label" set_or_get="set" property_name="Visible" is_generic="false" instance_name="LBL_Message_import_error"></mutation>
+        <field name="COMPONENT_SELECTOR">LBL_Message_import_error</field>
+        <field name="PROP">Visible</field>
+        <value name="VALUE">
+          <block type="logic_boolean" id="19">
+            <field name="BOOL">FALSE</field>
+          </block>
+        </value>
+        <next>
+          <block type="component_set_get" id="20" inline="false">
+            <mutation component_type="VerticalArrangement" set_or_get="set" property_name="Visible" is_generic="false" instance_name="PANEL_results"></mutation>
+            <field name="COMPONENT_SELECTOR">PANEL_results</field>
+            <field name="PROP">Visible</field>
+            <value name="VALUE">
+              <block type="logic_boolean" id="21">
+                <field name="BOOL">FALSE</field>
+              </block>
+            </value>
+            <next>
+              <block type="controls_if" id="22" inline="false">
+                <mutation else="1"></mutation>
+                <value name="IF0">
+                  <block type="math_compare" id="23" inline="true">
+                    <field name="OP">EQ</field>
+                    <value name="A">
+                      <block type="lexical_variable_get" id="24">
+                        <field name="VAR">decimal</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="text" id="25">
+                        <field name="TEXT">error</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <statement name="DO0">
+                  <block type="component_set_get" id="26" inline="false">
+                    <mutation component_type="Label" set_or_get="set" property_name="Visible" is_generic="false" instance_name="LBL_Message_import_error"></mutation>
+                    <field name="COMPONENT_SELECTOR">LBL_Message_import_error</field>
+                    <field name="PROP">Visible</field>
+                    <value name="VALUE">
+                      <block type="logic_boolean" id="27">
+                        <field name="BOOL">TRUE</field>
+                      </block>
+                    </value>
+                  </block>
+                </statement>
+                <statement name="ELSE">
+                  <block type="component_set_get" id="28" inline="false">
+                    <mutation component_type="VerticalArrangement" set_or_get="set" property_name="Visible" is_generic="false" instance_name="PANEL_results"></mutation>
+                    <field name="COMPONENT_SELECTOR">PANEL_results</field>
+                    <field name="PROP">Visible</field>
+                    <value name="VALUE">
+                      <block type="logic_boolean" id="29">
+                        <field name="BOOL">TRUE</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="component_set_get" id="30" inline="false">
+                        <mutation component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LBL_dec"></mutation>
+                        <field name="COMPONENT_SELECTOR">LBL_dec</field>
+                        <field name="PROP">Text</field>
+                        <value name="VALUE">
+                          <block type="lexical_variable_get" id="31">
+                            <field name="VAR">decimal</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="component_set_get" id="32" inline="false">
+                            <mutation component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LBL_hex"></mutation>
+                            <field name="COMPONENT_SELECTOR">LBL_hex</field>
+                            <field name="PROP">Text</field>
+                            <value name="VALUE">
+                              <block type="math_convert_unit" id="33" inline="false">
+                                <field name="OP">DEC_TO_HEX</field>
+                                <value name="UNIT">
+                                  <block type="lexical_variable_get" id="34">
+                                    <field name="VAR">decimal</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="component_set_get" id="35" inline="false">
+                                <mutation component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LBL_bin"></mutation>
+                                <field name="COMPONENT_SELECTOR">LBL_bin</field>
+                                <field name="PROP">Text</field>
+                                <value name="VALUE">
+                                  <block type="math_convert_unit" id="36" inline="false">
+                                    <field name="OP">DEC_TO_BIN</field>
+                                    <value name="UNIT">
+                                      <block type="lexical_variable_get" id="37">
+                                        <field name="VAR">decimal</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </statement>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <yacodeblocks ya-version="105" language-version="17"></yacodeblocks>
+</xml>
